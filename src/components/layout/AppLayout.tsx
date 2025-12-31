@@ -30,13 +30,13 @@ const purchaserNavItems = [
   { path: '/purchaser/documents', label: 'Documents', icon: FolderOpen },
 ];
 
-const adminNavItems = [
-  { path: '/admin', label: 'Dashboard', icon: Home },
-  { path: '/admin/work-queue', label: 'Work Queue', icon: ClipboardList },
-  { path: '/admin/payments', label: 'Payments Monitor', icon: CreditCard },
-  { path: '/admin/cases', label: 'Cases', icon: Scale },
-  { path: '/admin/documents', label: 'Documents & Issuance', icon: FolderOpen },
-  { path: '/admin/audit-log', label: 'Audit Log', icon: History },
+const serviceProviderNavItems = [
+  { path: '/service-provider', label: 'Dashboard', icon: Home },
+  { path: '/service-provider/work-queue', label: 'Work Queue', icon: ClipboardList },
+  { path: '/service-provider/payments', label: 'Payments Monitor', icon: CreditCard },
+  { path: '/service-provider/cases', label: 'Cases', icon: Scale },
+  { path: '/service-provider/documents', label: 'Documents & Issuance', icon: FolderOpen },
+  { path: '/service-provider/audit-log', label: 'Audit Log', icon: History },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -47,7 +47,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isPurchaser = user?.role === 'purchaser';
-  const navItems = isPurchaser ? purchaserNavItems : adminNavItems;
+  const navItems = isPurchaser ? purchaserNavItems : serviceProviderNavItems;
 
   const handleLogout = () => {
     logout();
