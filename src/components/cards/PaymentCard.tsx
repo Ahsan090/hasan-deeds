@@ -1,29 +1,32 @@
 import { Calendar, CreditCard, Receipt, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PaymentInstallment } from '@/types/entities';
+import { PaymentInstallment, PaymentSchedule } from '@/types/entities';
 import { StatusBadge, getPaymentStatusVariant } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { format, isPast, isToday, addDays, isBefore } from 'date-fns';
 
 interface PaymentCardProps {
   installment: PaymentInstallment;
+  paymentSchedule?: PaymentSchedule; // Pass schedule to access installmentNumber
   plotNumber?: string;
+  installmentNumber?: number; // Explicit prop
   onPayNow?: () => void;
   onViewReceipt?: () => void;
   className?: string;
 }
 
-export function PaymentCard({ 
-  installment, 
+export function PaymentCard({
+  installment,
   plotNumber,
-  onPayNow, 
+  installmentNumber,
+  onPayNow,
   onViewReceipt,
-  className 
+  className
 }: PaymentCardProps) {
   const dueDate = new Date(installment.dueDate);
   const isOverdue = installment.status === 'overdue' || (installment.status === 'pending' && isPast(dueDate) && !isToday(dueDate));
   const isDueSoon = installment.status === 'pending' && isBefore(dueDate, addDays(new Date(), 7));
-  
+
   const formatAmount = (amount: number) => {
     return `PKR ${amount.toLocaleString()}`;
   };
@@ -33,7 +36,10 @@ export function PaymentCard({
     paid: 'Paid',
     overdue: 'Overdue',
     failed: 'Failed',
+    partial: 'Partial',
   };
+
+  const displayInstallmentNumber = installmentNumber ?? 0;
 
   return (
     <div className={cn(
@@ -46,7 +52,7 @@ export function PaymentCard({
         <div>
           <div className="flex items-center gap-2">
             <h4 className="font-semibold text-foreground">
-              {installment.installmentNumber === 0 ? 'Down Payment' : `Installment #${installment.installmentNumber}`}
+              {displayInstallmentNumber === 0 ? 'Down Payment' : `Installment #${displayInstallmentNumber}`}
             </h4>
             {plotNumber && (
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
@@ -94,9 +100,9 @@ export function PaymentCard({
               'text-sm font-medium',
               isOverdue && 'text-destructive'
             )}>
-              {format(installment.status === 'paid' && installment.paidDate 
-                ? new Date(installment.paidDate) 
-                : dueDate, 
+              {format(installment.status === 'paid' && installment.dateOfPayment
+                ? new Date(installment.dateOfPayment)
+                : dueDate,
                 'MMM d, yyyy'
               )}
             </p>
@@ -107,9 +113,9 @@ export function PaymentCard({
       {/* Actions */}
       <div className="flex gap-2 pt-3 border-t">
         {installment.status === 'paid' && installment.receiptUri && (
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="flex-1"
             onClick={onViewReceipt}
           >
@@ -118,9 +124,9 @@ export function PaymentCard({
           </Button>
         )}
         {(installment.status === 'pending' || installment.status === 'overdue') && (
-          <Button 
-            variant={isOverdue ? 'destructive' : 'default'} 
-            size="sm" 
+          <Button
+            variant={isOverdue ? 'destructive' : 'default'}
+            size="sm"
             className="flex-1"
             onClick={onPayNow}
           >
@@ -135,14 +141,15 @@ export function PaymentCard({
 
 interface PaymentRowProps {
   installment: PaymentInstallment;
+  installmentNumber?: number;
   onPayNow?: () => void;
   onViewReceipt?: () => void;
 }
 
-export function PaymentRow({ installment, onPayNow, onViewReceipt }: PaymentRowProps) {
+export function PaymentRow({ installment, installmentNumber = 0, onPayNow, onViewReceipt }: PaymentRowProps) {
   const dueDate = new Date(installment.dueDate);
   const isOverdue = installment.status === 'overdue' || (installment.status === 'pending' && isPast(dueDate) && !isToday(dueDate));
-  
+
   const formatAmount = (amount: number) => `PKR ${amount.toLocaleString()}`;
 
   return (
@@ -159,15 +166,15 @@ export function PaymentRow({ installment, onPayNow, onViewReceipt }: PaymentRowP
           (installment.status === 'overdue' || isOverdue) && 'bg-destructive/10 text-destructive',
           installment.status === 'failed' && 'bg-destructive/10 text-destructive'
         )}>
-          {installment.installmentNumber === 0 ? 'DP' : `#${installment.installmentNumber}`}
+          {installmentNumber === 0 ? 'DP' : `#${installmentNumber}`}
         </div>
         <div>
           <p className="font-medium text-sm">
-            {installment.installmentNumber === 0 ? 'Down Payment' : `Installment ${installment.installmentNumber}`}
+            {installmentNumber === 0 ? 'Down Payment' : `Installment ${installmentNumber}`}
           </p>
           <p className="text-xs text-muted-foreground">
-            {installment.status === 'paid' 
-              ? `Paid on ${format(new Date(installment.paidDate!), 'MMM d, yyyy')}`
+            {installment.status === 'paid'
+              ? `Paid on ${format(new Date(installment.dateOfPayment!), 'MMM d, yyyy')}`
               : `Due ${format(dueDate, 'MMM d, yyyy')}`
             }
           </p>
@@ -183,8 +190,8 @@ export function PaymentRow({ installment, onPayNow, onViewReceipt }: PaymentRowP
             <Receipt className="w-4 h-4" />
           </Button>
         ) : (installment.status === 'pending' || installment.status === 'overdue') ? (
-          <Button 
-            variant={isOverdue ? 'destructive' : 'outline'} 
+          <Button
+            variant={isOverdue ? 'destructive' : 'outline'}
             size="sm"
             onClick={onPayNow}
           >

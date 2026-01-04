@@ -13,8 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  Home, FileText, CreditCard, FolderOpen, Users, ClipboardList, 
+import {
+  Home, FileText, CreditCard, FolderOpen, Users, ClipboardList,
   Scale, History, Settings, LogOut, Menu, X, ChevronRight
 } from 'lucide-react';
 import { useState } from 'react';
@@ -32,6 +32,7 @@ const purchaserNavItems = [
 
 const serviceProviderNavItems = [
   { path: '/service-provider', label: 'Dashboard', icon: Home },
+  { path: '/service-provider/plots', label: 'Plot Management', icon: FileText },
   { path: '/service-provider/work-queue', label: 'Work Queue', icon: ClipboardList },
   { path: '/service-provider/payments', label: 'Payments Monitor', icon: CreditCard },
   { path: '/service-provider/cases', label: 'Cases', icon: Scale },
@@ -54,8 +55,27 @@ export function AppLayout({ children }: AppLayoutProps) {
     navigate('/');
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  // Get user name from populated purchaserId or serviceProviderId
+  const getUserName = () => {
+    if (!user) return 'User';
+
+    // Check if purchaserId is populated with Purchase object
+    if (user.purchaserId && typeof user.purchaserId === 'object') {
+      return user.purchaserId.name || 'User';
+    }
+
+    // Check if serviceProviderId is populated with ServiceProvider object
+    if (user.serviceProviderId && typeof user.serviceProviderId === 'object') {
+      return user.serviceProviderId.name || 'User';
+    }
+
+    // Fallback to email username
+    return user.email.split('@')[0] || 'User';
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -120,7 +140,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
@@ -199,24 +219,24 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           <div className="flex items-center gap-2 sm:gap-4">
             <NotificationCenter />
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 px-2">
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                      {user && getInitials(user.name)}
+                      {getInitials(getUserName())}
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden sm:inline text-sm font-medium">
-                    {user?.name}
+                    {getUserName()}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="font-medium">{user?.name}</p>
+                    <p className="font-medium">{getUserName()}</p>
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
                 </DropdownMenuLabel>

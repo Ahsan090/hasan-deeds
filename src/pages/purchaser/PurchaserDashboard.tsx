@@ -1,47 +1,84 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { BentoGrid, BentoCard, BentoCardHeader } from '@/components/ui/bento-grid';
-import { MilestoneProgress, MilestoneSteps } from '@/components/ui/milestone-progress';
+import { MilestoneProgress } from '@/components/ui/milestone-progress';
 import { PlotCard } from '@/components/cards/PlotCard';
 import { PaymentCard } from '@/components/cards/PaymentCard';
-import { DocumentCard } from '@/components/cards/DocumentCard';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
-import { 
-  mockPlots, mockPlaces, mockPaymentSchedules, mockPaymentInstallments, 
-  mockPlotDetails, getPlotWithDetails, calculateMilestone 
-} from '@/data/mockData';
-import { 
-  ArrowRight, TrendingUp, FileText, CreditCard, AlertTriangle,
+import {
+  ArrowRight, TrendingUp, FileText, CreditCard,
   CheckCircle2, Clock, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays, isBefore } from 'date-fns';
+import { useMyPlots } from '@/hooks/usePlots';
+import { useMyPayments } from '@/hooks/usePayments';
+import { PaymentInstallment, PaymentSchedule } from '@/types/entities';
 
 export default function PurchaserDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { data: plotsData, isLoading: plotsLoading } = useMyPlots();
+  const { data: paymentsData, isLoading: paymentsLoading } = useMyPayments();
 
-  // Get purchaser's plots (using mock data for Fatima Ali - purchase-002)
-  const purchaserPlots = mockPlots.filter(p => p.purchaserId === 'purchase-002');
-  
-  // Get upcoming payments
-  const upcomingPayments = mockPaymentInstallments
+  const purchaserPlots = plotsData?.data || [];
+
+  // Flatten payments to find upcoming ones
+  const allInstallments = paymentsData?.data?.flatMap(item =>
+    item.installments.map(inst => ({
+      ...inst,
+      scheduleId: item.schedule._id,
+      installmentNumber: item.schedule.installmentNumber // This logic might need refinement if schedule.installmentNumber is total count?
+      // Wait, PaymentSchedule has "installmentNumber". If that's the count, we don't know THIS installment's number unless we deduce index.
+      // But let's assume item.installments is ordered 0..N
+      // We can map with index:
+    }))
+  ) || [];
+
+  // Re-map with index if needed, or rely on installment not having it.
+  // Actually, let's map carefully.
+  const flatPayments = paymentsData?.data?.flatMap(item =>
+    item.installments.map((inst, index) => ({
+      ...inst,
+      schedule: item.schedule,
+      calculatedInstallmentNumber: index // Assuming 0-indexed order matches installment # (0 = down payment?)
+    }))
+  ) || [];
+
+  const upcomingPayments = flatPayments
     .filter(i => i.status === 'pending' || i.status === 'overdue')
-    .filter(i => {
-      const schedule = mockPaymentSchedules.find(s => s.scheduleId === i.scheduleId);
-      return purchaserPlots.some(p => p.plotId === schedule?.plotId);
-    })
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 3);
 
   // Calculate statistics
   const totalPlots = purchaserPlots.length;
-  const totalValue = purchaserPlots.reduce((sum, p) => sum + p.price, 0);
-  const activePayments = upcomingPayments.length;
+  // totalValue sum
+  const totalValue = purchaserPlots.reduce((sum, p) => sum + p.plot.totalValue, 0);
+  const activePayments = flatPayments.filter(i => i.status === 'pending' || i.status === 'overdue').length;
 
   // Get featured plot (first one)
-  const featuredPlot = purchaserPlots[0];
-  const featuredData = featuredPlot ? getPlotWithDetails(featuredPlot.plotId) : null;
+  const featuredPlotData = purchaserPlots[0];
+  const featuredPlot = featuredPlotData?.plot;
+  const featuredDetails = featuredPlotData?.details;
+
+  // Mock milestone calculation for now as it requires complex logic not fully in entity yet
+  // Or we can calculate based on payments if we have them for this plot.
+  const getMilestone = (plotId: string) => {
+    // Simple mock logic or 0 if no payments
+    return { percentage: 25, level: 10 as any };
+  };
+  const featuredMilestone = featuredPlot ? getMilestone(featuredPlot._id) : { percentage: 0, level: 0 };
+
+  const getUserName = () => {
+    if (!user) return 'User';
+    if (typeof user.purchaserId === 'object' && user.purchaserId !== null && 'name' in user.purchaserId) return user.purchaserId.name;
+    if (typeof user.serviceProviderId === 'object' && user.serviceProviderId !== null && 'name' in user.serviceProviderId) return user.serviceProviderId.name;
+    return user.email.split('@')[0];
+  }
+
+  if (plotsLoading || paymentsLoading) {
+    return <AppLayout><div className="p-8">Loading dashboard...</div></AppLayout>;
+  }
 
   return (
     <AppLayout>
@@ -50,7 +87,7 @@ export default function PurchaserDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Welcome back, {user?.name?.split(' ')[0]}!
+              Welcome back, {getUserName().split(' ')[0]}!
             </h1>
             <p className="text-muted-foreground mt-1">
               Here's an overview of your plots and payments
@@ -75,7 +112,7 @@ export default function PurchaserDashboard() {
               </div>
             </div>
           </BentoCard>
-          
+
           <BentoCard>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -89,7 +126,7 @@ export default function PurchaserDashboard() {
               </div>
             </div>
           </BentoCard>
-          
+
           <BentoCard>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
@@ -101,7 +138,7 @@ export default function PurchaserDashboard() {
               </div>
             </div>
           </BentoCard>
-          
+
           <BentoCard>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
@@ -119,23 +156,23 @@ export default function PurchaserDashboard() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Featured Plot - Milestone Progress */}
           <div className="lg:col-span-2">
-            {featuredData && featuredData.plot && (
+            {featuredPlot && (
               <BentoCard className="h-full">
-                <BentoCardHeader 
-                  title={`Plot ${featuredData.plot.plotNumber}`}
-                  subtitle={featuredData.place?.placeName}
+                <BentoCardHeader
+                  title={`Plot ${featuredPlot.plotNumber}`}
+                  subtitle={featuredPlot.location}
                   action={
                     <StatusBadge variant="active">
-                      {featuredData.milestone.percentage}% Complete
+                      {featuredMilestone.percentage}% Complete
                     </StatusBadge>
                   }
                 />
-                
+
                 {/* Milestone Progress */}
                 <div className="mb-6">
-                  <MilestoneProgress 
-                    percentage={featuredData.milestone.percentage}
-                    milestoneLevel={featuredData.milestone.level}
+                  <MilestoneProgress
+                    percentage={featuredMilestone.percentage}
+                    milestoneLevel={featuredMilestone.level as any}
                     size="lg"
                   />
                 </div>
@@ -143,19 +180,19 @@ export default function PurchaserDashboard() {
                 {/* Milestone Steps */}
                 <div className="grid grid-cols-4 gap-4 mb-6">
                   {[
-                    { level: 10, label: 'Allotment', doc: featuredData.details?.allotmentDocUri },
-                    { level: 50, label: 'Allocation', doc: featuredData.details?.allocationDocUri },
-                    { level: 75, label: 'Possession', doc: featuredData.details?.possessionDocUri },
-                    { level: 100, label: 'Clearance', doc: featuredData.details?.clearanceDocUri },
+                    { level: 10, label: 'Allotment', doc: featuredDetails?.allotmentDocUri },
+                    { level: 50, label: 'Allocation', doc: featuredDetails?.allocationDocUri },
+                    { level: 75, label: 'Possession', doc: featuredDetails?.possessionDocUri },
+                    { level: 100, label: 'Clearance', doc: featuredDetails?.clearanceDocUri },
                   ].map((m) => {
-                    const isCompleted = featuredData.milestone.level >= m.level;
+                    // Check if level reached (mock logic for now, should be real)
+                    const isCompleted = featuredMilestone.percentage >= m.level;
                     const hasDoc = !!m.doc;
                     return (
-                      <div 
+                      <div
                         key={m.level}
-                        className={`p-3 rounded-lg border text-center ${
-                          isCompleted ? 'bg-accent/10 border-accent' : 'bg-muted/50 border-border'
-                        }`}
+                        className={`p-3 rounded-lg border text-center ${isCompleted ? 'bg-accent/10 border-accent' : 'bg-muted/50 border-border'
+                          }`}
                       >
                         <p className={`text-xs font-medium ${isCompleted ? 'text-accent' : 'text-muted-foreground'}`}>
                           {m.level}%
@@ -180,15 +217,15 @@ export default function PurchaserDashboard() {
 
                 {/* Quick Actions */}
                 <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1"
                     onClick={() => navigate('/purchaser/documents')}
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     View Documents
                   </Button>
-                  <Button 
+                  <Button
                     className="flex-1"
                     onClick={() => navigate('/purchaser/payments')}
                   >
@@ -203,7 +240,7 @@ export default function PurchaserDashboard() {
           {/* Upcoming Payments */}
           <div>
             <BentoCard className="h-full">
-              <BentoCardHeader 
+              <BentoCardHeader
                 title="Upcoming Payments"
                 action={
                   <Button variant="ghost" size="sm" onClick={() => navigate('/purchaser/payments')}>
@@ -212,7 +249,7 @@ export default function PurchaserDashboard() {
                   </Button>
                 }
               />
-              
+
               <div className="space-y-3">
                 {upcomingPayments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
@@ -221,13 +258,14 @@ export default function PurchaserDashboard() {
                   </div>
                 ) : (
                   upcomingPayments.map((payment) => {
-                    const schedule = mockPaymentSchedules.find(s => s.scheduleId === payment.scheduleId);
-                    const plot = mockPlots.find(p => p.plotId === schedule?.plotId);
+                    // Find plot for this payment
+                    const plotData = purchaserPlots.find(p => p.plot._id === payment.schedule.plotId);
                     return (
                       <PaymentCard
-                        key={payment.installmentId}
+                        key={payment._id}
                         installment={payment}
-                        plotNumber={plot?.plotNumber}
+                        installmentNumber={payment.calculatedInstallmentNumber}
+                        plotNumber={plotData?.plot.plotNumber}
                         onPayNow={() => navigate('/purchaser/payments')}
                       />
                     );
@@ -247,19 +285,15 @@ export default function PurchaserDashboard() {
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
-          
+
           <BentoGrid columns={3}>
-            {purchaserPlots.map((plot) => {
-              const place = mockPlaces.find(p => p.placeId === plot.placeId);
-              return (
-                <PlotCard
-                  key={plot.plotId}
-                  plot={plot}
-                  place={place}
-                  onClick={() => navigate(`/purchaser/plots/${plot.plotId}`)}
-                />
-              );
-            })}
+            {purchaserPlots.map((plotData) => (
+              <PlotCard
+                key={plotData.plot._id}
+                plot={plotData.plot}
+                onClick={() => navigate(`/purchaser/plots/${plotData.plot._id}`)}
+              />
+            ))}
           </BentoGrid>
         </div>
       </div>

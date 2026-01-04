@@ -1,51 +1,185 @@
-import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { BentoCard, BentoCardHeader } from '@/components/ui/bento-grid';
-import { DocumentList, UploadedDocumentCard } from '@/components/cards/DocumentCard';
+import { UploadedDocumentCard } from '@/components/cards/DocumentCard';
 import { MilestoneProgress } from '@/components/ui/milestone-progress';
-import { Button } from '@/components/ui/button';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { 
-  mockPlots, mockPlaces, mockPlotDetails, calculateMilestone 
-} from '@/data/mockData';
-import { 
-  FileText, Download, Eye, Lock, CheckCircle2, AlertCircle, FolderOpen
-} from 'lucide-react';
+import { useMyDocuments, useMilestoneDocuments } from '@/hooks/useDocuments';
+import { usePaymentProgress } from '@/hooks/usePayments';
+import { FolderOpen, Loader2, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+const MILESTONE_LABELS: Record<number, string> = {
+  10: 'Allotment Letter',
+  50: 'Allocation Document',
+  75: 'Possession Certificate',
+  100: 'Clearance Certificate',
+};
+
+interface PlotDocumentCardProps {
+  plotId: string;
+  plotNumber: string;
+  location: string;
+  details: any;
+  onViewDocument: (documentId: string, fallbackUri?: string) => void;
+}
+
+function PlotDocumentCard({ plotId, plotNumber, location, details, onViewDocument }: PlotDocumentCardProps) {
+  // Hooks called at component level (not in map)
+  const { data: progressData } = usePaymentProgress(plotId);
+  const { data: milestoneData, isLoading: milestonesLoading } = useMilestoneDocuments(plotId);
+
+  const paymentPercentage = progressData?.data?.percentage || 0;
+  const milestoneDocuments = milestoneData?.data?.documents || [];
+  const approvedDocs = milestoneDocuments.filter(d => d.status === 'approved');
+
+  return (
+    <BentoCard>
+      <BentoCardHeader
+        title={`Plot ${plotNumber}`}
+        subtitle={location}
+        action={
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {paymentPercentage}% Paid
+            </span>
+          </div>
+        }
+      />
+
+      {/* Milestone Progress */}
+      <div className="mb-6">
+        <MilestoneProgress
+          percentage={paymentPercentage as any}
+          milestoneLevel={paymentPercentage as any}
+          size="md"
+        />
+      </div>
+
+      <Tabs defaultValue="issued" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="issued">Milestone Documents ({approvedDocs.length})</TabsTrigger>
+          <TabsTrigger value="submitted">Submitted Documents</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="issued" className="mt-4">
+          <div className="space-y-3">
+            {milestonesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : approvedDocs.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Documents issued at each payment milestone
+                </p>
+                {approvedDocs.map((doc) => (
+                  <UploadedDocumentCard
+                    key={doc._id}
+                    title={MILESTONE_LABELS[doc.percentage] || 'Document'}
+                    fileName={doc.generatedUri?.split('/').pop() || 'document.pdf'}
+                    uploadedAt={new Date(doc.approvedAt || doc.createdAt).toLocaleDateString()}
+                    status="verified"
+                    onView={() => onViewDocument(doc._id, doc.generatedUri)}
+                  />
+                ))}
+              </>
+            ) : (
+              <div className="p-4 rounded-lg bg-muted/50 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No milestone documents issued yet. They will be generated as you reach payment milestones.
+                </p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="submitted" className="mt-4">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground mb-2">
+              Documents you've submitted for verification
+            </p>
+
+            {details?.purchaserCnicCopyUri && (
+              <UploadedDocumentCard
+                title="CNIC Copy"
+                fileName="cnic_copy.pdf"
+                uploadedAt={new Date(details.updatedAt).toLocaleDateString()}
+                status={details.status === 'verified' ? 'verified' : details.status === 'rejected' ? 'rejected' : 'uploaded'}
+                onView={() => onViewDocument('', details.purchaserCnicCopyUri!)}
+              />
+            )}
+
+            {details?.purchaserBankStatementUri && (
+              <UploadedDocumentCard
+                title="Bank Statement"
+                fileName="bank_statement.pdf"
+                uploadedAt={new Date(details.updatedAt).toLocaleDateString()}
+                status={details.status === 'verified' ? 'verified' : details.status === 'rejected' ? 'rejected' : 'uploaded'}
+                onView={() => onViewDocument('', details.purchaserBankStatementUri!)}
+              />
+            )}
+
+            {details?.companyFormUri && (
+              <UploadedDocumentCard
+                title="Company Form"
+                fileName="company_form.pdf"
+                uploadedAt={new Date(details.updatedAt).toLocaleDateString()}
+                status={details.status === 'verified' ? 'verified' : details.status === 'rejected' ? 'rejected' : 'uploaded'}
+                onView={() => onViewDocument('', details.companyFormUri!)}
+              />
+            )}
+
+            {details?.plotMapUri && (
+              <UploadedDocumentCard
+                title="Plot Map"
+                fileName="plot_map.pdf"
+                uploadedAt={new Date(details.updatedAt).toLocaleDateString()}
+                status={details.status === 'verified' ? 'verified' : details.status === 'rejected' ? 'rejected' : 'uploaded'}
+                onView={() => onViewDocument('', details.plotMapUri!)}
+              />
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </BentoCard>
+  );
+}
 
 export default function PurchaserDocuments() {
-  const [viewerDialog, setViewerDialog] = useState<{ open: boolean; title?: string; uri?: string }>({ open: false });
+  const { data: documentsResponse, isLoading: docsLoading } = useMyDocuments();
+  const plotDocuments = documentsResponse?.data || [];
 
-  // Get purchaser's plots
-  const purchaserPlots = mockPlots.filter(p => p.purchaserId === 'purchase-002');
-  
-  const plotDocumentData = purchaserPlots.map(plot => {
-    const details = mockPlotDetails.find(d => d.plotId === plot.plotId);
-    const place = mockPlaces.find(p => p.placeId === plot.placeId);
-    const milestone = calculateMilestone(plot.plotId);
-    
-    return { plot, place, details, milestone };
-  });
+  const handleViewDocument = async (documentId: string, fallbackUri?: string) => {
+    try {
+      // Try to get fresh signed URL/metadata first
+      const response = await import('@/lib/api').then(m => m.api.get<{ data: { uri: string } }>(`/documents/${documentId}/download`));
+      if (response.data?.data?.uri) {
+        window.open(response.data.data.uri, '_blank');
+        return;
+      }
+    } catch (error) {
+      console.warn('Failed to get download URL, trying fallback', error);
+    }
 
-  const handleViewDocument = (title: string, uri: string) => {
-    setViewerDialog({ open: true, title, uri });
+    // Fallback to strict URI if available
+    if (fallbackUri) {
+      window.open(fallbackUri, '_blank');
+    }
   };
 
-  const handleDownloadDocument = (uri: string) => {
-    // Simulate download
-    console.log('Downloading:', uri);
-  };
+  if (docsLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -59,110 +193,19 @@ export default function PurchaserDocuments() {
         </div>
 
         {/* Documents by Plot */}
-        {plotDocumentData.map(({ plot, place, details, milestone }) => (
-          <BentoCard key={plot.plotId}>
-            <BentoCardHeader 
-              title={`Plot ${plot.plotNumber}`}
-              subtitle={place?.placeName}
-              action={
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {milestone.percentage}% Complete
-                  </span>
-                </div>
-              }
-            />
-            
-            {/* Milestone Progress */}
-            <div className="mb-6">
-              <MilestoneProgress 
-                percentage={milestone.percentage}
-                milestoneLevel={milestone.level}
-                size="md"
-              />
-            </div>
-
-            <Tabs defaultValue="issued" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="issued">Issued Documents</TabsTrigger>
-                <TabsTrigger value="submitted">Submitted Documents</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="issued" className="mt-4">
-                <div className="grid gap-4">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Documents are issued as you reach payment milestones
-                  </p>
-                  <DocumentList
-                    documents={[
-                      { 
-                        title: 'Allotment Letter', 
-                        description: 'Plot allotment confirmation',
-                        uri: details?.allotmentDocUri,
-                        milestoneRequired: 10 
-                      },
-                      { 
-                        title: 'Allocation Document', 
-                        description: 'Official plot allocation',
-                        uri: details?.allocationDocUri,
-                        milestoneRequired: 50 
-                      },
-                      { 
-                        title: 'Possession Certificate', 
-                        description: 'Plot possession transfer',
-                        uri: details?.possessionDocUri,
-                        milestoneRequired: 75 
-                      },
-                      { 
-                        title: 'Clearance Certificate', 
-                        description: 'Final payment clearance',
-                        uri: details?.clearanceDocUri,
-                        milestoneRequired: 100 
-                      },
-                    ]}
-                    currentMilestone={milestone.level}
-                    onView={(uri) => handleViewDocument('Document', uri)}
-                    onDownload={handleDownloadDocument}
-                  />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="submitted" className="mt-4">
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Documents you've submitted for verification
-                  </p>
-                  <UploadedDocumentCard
-                    title="CNIC Copy"
-                    fileName="cnic_front_back.pdf"
-                    uploadedAt="Jan 15, 2024"
-                    status={details?.verificationStatus === 'verified' ? 'verified' : 'uploaded'}
-                    onView={() => handleViewDocument('CNIC Copy', details?.cnicCopyUri || '')}
-                  />
-                  <UploadedDocumentCard
-                    title="Bank Statement"
-                    fileName="bank_statement_6months.pdf"
-                    uploadedAt="Jan 15, 2024"
-                    status={details?.verificationStatus === 'verified' ? 'verified' : 'uploaded'}
-                    onView={() => handleViewDocument('Bank Statement', details?.bankStatementUri || '')}
-                  />
-                  {details?.companyFormUri && (
-                    <UploadedDocumentCard
-                      title="Company Form"
-                      fileName="company_registration.pdf"
-                      uploadedAt="Jan 15, 2024"
-                      status={details?.verificationStatus === 'verified' ? 'verified' : 'uploaded'}
-                      onView={() => handleViewDocument('Company Form', details?.companyFormUri || '')}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </BentoCard>
+        {plotDocuments.map(({ plot, details }) => (
+          <PlotDocumentCard
+            key={plot._id}
+            plotId={plot._id}
+            plotNumber={plot.plotNumber}
+            location={plot.location}
+            details={details}
+            onViewDocument={handleViewDocument}
+          />
         ))}
 
         {/* No plots state */}
-        {plotDocumentData.length === 0 && (
+        {plotDocuments.length === 0 && (
           <BentoCard className="text-center py-12">
             <FolderOpen className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <h2 className="text-lg font-semibold">No Documents Yet</h2>
@@ -171,38 +214,6 @@ export default function PurchaserDocuments() {
             </p>
           </BentoCard>
         )}
-
-        {/* Document Viewer Dialog */}
-        <Dialog open={viewerDialog.open} onOpenChange={(open) => setViewerDialog({ open })}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>{viewerDialog.title}</DialogTitle>
-              <DialogDescription>
-                Secure document viewer • Watermarked copy
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="min-h-[400px] bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">Document Preview</p>
-                <p className="text-sm mt-1">
-                  Secure URI: {viewerDialog.uri}
-                </p>
-                <div className="mt-4 flex gap-2 justify-center">
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Full
-                  </Button>
-                  <Button size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </AppLayout>
   );

@@ -1,141 +1,154 @@
-// Entity Types - Mapped exactly to backend entity attributes
-// JSON Mapping File: UI Field → Backend Entity.Attribute
+// Entity Types - Aligned with Backend OpenAPI Spec
+
+export type UserRole = 'purchaser' | 'service_provider' | 'admin' | 'legal';
+
+export interface User {
+  _id: string;
+  email: string;
+  role: UserRole;
+  purchaserId?: string | Purchase; // Can be ID or populated object
+  serviceProviderId?: string | ServiceProvider; // Can be ID or populated object
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Purchase {
+  _id: string;
+  name: string;
+  cnicNumber: string;
+  phoneNumber: string;
+  fatherName: string;
+  balance: number;
+  imageUri?: string;
+}
+
+export interface ServiceProvider {
+  _id: string;
+  name: string;
+  cnicNumber: string;
+  phoneNumber: string;
+  balance: number;
+  imageUri?: string;
+}
 
 export type PlotStatus = 'available' | 'reserved' | 'sold' | 'on_hold';
-export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'failed';
-export type CaseStatus = 'filed' | 'in_progress' | 'resolved' | 'dismissed';
-export type MilestoneLevel = 0 | 10 | 50 | 75 | 100;
-export type NotificationType = 'info' | 'warning' | 'critical';
-export type UserRole = 'purchaser' | 'service_provider' | 'admin_legal' | 'admin';
 
-// Place Entity
-export interface Place {
-  placeId: string;           // place.placeId
-  placeName: string;         // place.placeName
-  city: string;              // place.city
-  region: string;            // place.region
-}
-
-// Plot Entity
 export interface Plot {
-  plotId: string;            // plot.plotId
-  plotNumber: string;        // plot.plotNumber
-  placeId: string;           // plot.placeId (FK to Place)
-  size: number;              // plot.size (in marla/kanal)
-  sizeUnit: 'marla' | 'kanal'; // plot.sizeUnit
-  price: number;             // plot.price
-  status: PlotStatus;        // plot.status
-  purchaserId?: string;      // plot.purchaserId (FK to Purchase)
-  createdAt: string;         // plot.createdAt
-  updatedAt: string;         // plot.updatedAt
-}
-
-// Plot Details Entity - Document URIs
-export interface PlotDetails {
-  plotDetailsId: string;     // plotDetails.plotDetailsId
-  plotId: string;            // plotDetails.plotId (FK to Plot)
-  cnicCopyUri?: string;      // plotDetails.cnicCopyUri
-  bankStatementUri?: string; // plotDetails.bankStatementUri
-  companyFormUri?: string;   // plotDetails.companyFormUri
-  allotmentDocUri?: string;  // plotDetails.allotmentDocUri (10% milestone)
-  allocationDocUri?: string; // plotDetails.allocationDocUri (50% milestone)
-  possessionDocUri?: string; // plotDetails.possessionDocUri (75% milestone)
-  clearanceDocUri?: string;  // plotDetails.clearanceDocUri (100% milestone)
-  verificationStatus: 'pending' | 'verified' | 'rejected';
-  verifiedBy?: string;       // plotDetails.verifiedBy
-  verifiedAt?: string;       // plotDetails.verifiedAt
-}
-
-// Purchase Entity (Purchaser)
-export interface Purchase {
-  purchaseId: string;        // purchase.purchaseId
-  fullName: string;          // purchase.fullName
-  cnic: string;              // purchase.cnic (masked in UI)
-  phone: string;             // purchase.phone
-  email: string;             // purchase.email
-  address: string;           // purchase.address
-  createdAt: string;         // purchase.createdAt
-}
-
-// Service Provider Entity
-export interface ServiceProvider {
-  providerId: string;        // serviceProvider.providerId
-  name: string;              // serviceProvider.name
-  role: 'service_provider' | 'admin_legal';
-  email: string;             // serviceProvider.email
-  phone: string;             // serviceProvider.phone
-}
-
-// Payment Schedule Entity
-export interface PaymentSchedule {
-  scheduleId: string;        // paymentSchedule.scheduleId
-  plotId: string;            // paymentSchedule.plotId (FK to Plot)
-  totalAmount: number;       // paymentSchedule.totalAmount
-  downPayment: number;       // paymentSchedule.downPayment
-  installmentCount: number;  // paymentSchedule.installmentCount
-  createdAt: string;         // paymentSchedule.createdAt
-  createdBy: string;         // paymentSchedule.createdBy
-}
-
-// Payment Installment Entity
-export interface PaymentInstallment {
-  installmentId: string;     // paymentInstallment.installmentId
-  scheduleId: string;        // paymentInstallment.scheduleId (FK to PaymentSchedule)
-  installmentNumber: number; // paymentInstallment.installmentNumber
-  amount: number;            // paymentInstallment.amount
-  dueDate: string;           // paymentInstallment.dueDate
-  paidDate?: string;         // paymentInstallment.paidDate
-  status: PaymentStatus;     // paymentInstallment.status
-  receiptUri?: string;       // paymentInstallment.receiptUri
-  paymentProofUri?: string;  // paymentInstallment.paymentProofUri
-}
-
-// Failed Payment Entity
-export interface FailedPayment {
-  failedPaymentId: string;   // failedPayment.failedPaymentId
-  installmentId: string;     // failedPayment.installmentId (FK to PaymentInstallment)
-  plotId: string;            // failedPayment.plotId (FK to Plot)
-  purchaserId: string;       // failedPayment.purchaserId (FK to Purchase)
-  amount: number;            // failedPayment.amount
-  originalDueDate: string;   // failedPayment.originalDueDate
-  gracePeriodEnd: string;    // failedPayment.gracePeriodEnd
-  caseId?: string;           // failedPayment.caseId (if case filed)
-  caseStatus?: CaseStatus;   // failedPayment.caseStatus
-  courtDate?: string;        // failedPayment.courtDate
-  filedBy?: string;          // failedPayment.filedBy
-  filedAt?: string;          // failedPayment.filedAt
-  notes?: string;            // failedPayment.notes
-}
-
-// Notification Entity (In-App Only)
-export interface Notification {
-  notificationId: string;
-  userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  entityType?: 'plot' | 'payment' | 'case' | 'document';
-  entityId?: string;
-  read: boolean;
+  _id: string;
+  plotNumber: string;
+  area: string; // e.g., "10 marla"
+  location: string; // e.g., "Hasan Gardens Phase 1"
+  documentType?: string;
+  totalValue: number;
+  status: PlotStatus;
+  purchaserId?: string;
+  serviceProviderId?: string;
+  documentId?: string;
+  dateOfPreparation?: string;
+  dateOfSale?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-// Audit Log Entry
-export interface AuditLogEntry {
-  auditId: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  performedBy: string;
-  performedByRole: UserRole;
-  details: string;
-  timestamp: string;
+export interface PlotDetails {
+  _id: string;
+  plotId: string;
+  plotNumber: string;
+  name?: string; // Sometimes redundant with Purchase name but present in spec
+  status: 'pending' | 'uploaded' | 'verified' | 'rejected';
+  documentId?: string;
+  plotMapUri?: string;
+  purchaserCnicCopyUri?: string;
+  purchaserBankStatementUri?: string;
+  companyFormUri?: string;
+  allotmentDocUri?: string;
+  allocationDocUri?: string;
+  possessionDocUri?: string;
+  clearanceDocUri?: string;
+  allotmentStatus?: 'pending' | 'approved';
+  allocationStatus?: 'pending' | 'approved';
+  possessionStatus?: 'pending' | 'approved';
+  clearanceStatus?: 'pending' | 'approved';
+  createdAt: string;
+  updatedAt: string;
 }
 
-// User Session
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'partial' | 'failed';
+
+export interface PaymentSchedule {
+  _id: string;
+  plotId: string;
+  amount: number;
+  dueDate: string;
+  status: PaymentStatus;
+  installmentNumber: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentInstallment {
+  _id: string;
+  paymentScheduleId: string;
+  amount: number;
+  dueDate: string;
+  status: PaymentStatus;
+  amountPaid: number;
+  balance: number;
+  dateOfPayment?: string;
+  receiptUri?: string;
+  proofUri?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CaseStatus = 'recorded' | 'filed' | 'in_progress' | 'resolved' | 'closed';
+
+export interface FailedPayment {
+  _id: string;
+  plotId: string;
+  amount: number;
+  date: string;
+  status: CaseStatus;
+  caseId?: string;
+  courtDate?: string;
+  chargeCode?: string;
+  amountCharged?: number;
+  description?: string;
+  gracePeriodEnd: string;
+  filedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneDocument {
+  _id: string;
+  plotId: string;
+  percentage: number;
+  documentType: 'ALLOTMENT' | 'ALLOCATION' | 'POSSESSION' | 'CLEARANCE';
+  status: 'ready' | 'generated' | 'approved';
+  generatedUri?: string;
+  generatedAt?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  approvalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+  token?: string;
+  count?: number;
+}
+
+// User Session Wrapper (frontend specific)
 export interface UserSession {
   userId: string;
   role: UserRole;
-  name: string;
+  name?: string;
   email: string;
 }

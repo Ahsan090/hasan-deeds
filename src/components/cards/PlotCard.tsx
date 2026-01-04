@@ -1,22 +1,21 @@
 import { MapPin, Maximize2, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Plot, Place } from '@/types/entities';
+import { Plot } from '@/types/entities';
 import { StatusBadge, getPlotStatusVariant } from '@/components/ui/status-badge';
 import { MilestoneProgress } from '@/components/ui/milestone-progress';
 import { Button } from '@/components/ui/button';
-import { calculateMilestone } from '@/data/mockData';
 
 interface PlotCardProps {
   plot: Plot;
-  place?: Place;
   onClick?: () => void;
   showMilestone?: boolean;
+  milestonePercentage?: number;
   className?: string;
 }
 
-export function PlotCard({ plot, place, onClick, showMilestone = true, className }: PlotCardProps) {
-  const milestone = calculateMilestone(plot.plotId);
-  
+export function PlotCard({ plot, onClick, showMilestone = true, milestonePercentage = 0, className }: PlotCardProps) {
+  const milestone = { percentage: milestonePercentage, level: milestonePercentage as 0 | 10 | 50 | 75 | 100 };
+
   const formatPrice = (price: number) => {
     if (price >= 10000000) {
       return `PKR ${(price / 10000000).toFixed(1)} Cr`;
@@ -34,7 +33,7 @@ export function PlotCard({ plot, place, onClick, showMilestone = true, className
   };
 
   return (
-    <div 
+    <div
       className={cn(
         'bento-card group',
         onClick && 'cursor-pointer',
@@ -48,12 +47,10 @@ export function PlotCard({ plot, place, onClick, showMilestone = true, className
           <h3 className="font-semibold text-lg text-foreground">
             {plot.plotNumber}
           </h3>
-          {place && (
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-              <MapPin className="w-3.5 h-3.5" />
-              {place.placeName}, {place.city}
-            </div>
-          )}
+          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+            <MapPin className="w-3.5 h-3.5" />
+            {plot.location}
+          </div>
         </div>
         <StatusBadge variant={getPlotStatusVariant(plot.status)}>
           {statusLabels[plot.status]}
@@ -67,8 +64,8 @@ export function PlotCard({ plot, place, onClick, showMilestone = true, className
             <Maximize2 className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Size</p>
-            <p className="text-sm font-medium">{plot.size} {plot.sizeUnit}</p>
+            <p className="text-xs text-muted-foreground">Area</p>
+            <p className="text-sm font-medium">{plot.area}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -76,27 +73,11 @@ export function PlotCard({ plot, place, onClick, showMilestone = true, className
             <Tag className="w-4 h-4 text-accent" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Price</p>
-            <p className="text-sm font-medium">{formatPrice(plot.price)}</p>
+            <p className="text-xs text-muted-foreground">Total Value</p>
+            <p className="text-sm font-medium">{formatPrice(plot.totalValue)}</p>
           </div>
         </div>
       </div>
-
-      {/* Milestone Progress - Only for sold/reserved plots */}
-      {showMilestone && (plot.status === 'sold' || plot.status === 'reserved' || plot.status === 'on_hold') && (
-        <div className="pt-3 border-t">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Payment Progress</span>
-            <span className="text-xs font-medium text-accent">{milestone.percentage}%</span>
-          </div>
-          <MilestoneProgress 
-            percentage={milestone.percentage} 
-            milestoneLevel={milestone.level}
-            showLabels={false}
-            size="sm"
-          />
-        </div>
-      )}
 
       {/* Hover Action */}
       {onClick && (
